@@ -1,0 +1,11 @@
+FROM postgres:16-bullseye
+
+# Install timezone data and set timezone
+RUN apt-get update && \
+    apt-get install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/UTC /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set timezone environment variable
+ENV TZ=UTC
