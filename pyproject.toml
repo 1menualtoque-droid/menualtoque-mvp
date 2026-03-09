@@ -1,6 +1,5 @@
-# pyproject.toml
 [project]
-name = "fitsuyo-mvp"
+name = "menualtoque-mvp"
 requires-python = ">=3.11"
 
 [tool.ruff]
@@ -21,7 +20,7 @@ select = [
   "D"                   # pydocstyle (docstrings)
 ]
 ignore = [
-  "D100","D104","D105","D107","D102",  # don’t force module/class docstrings everywhere
+  "D100","D104","D105","D107","D102","D101",  # don’t force module/class docstrings everywhere
   "D203","D213"                 # prefer google-style single-blank-line
 ]
 [tool.ruff.lint.pydocstyle]

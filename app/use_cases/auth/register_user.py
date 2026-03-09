@@ -12,13 +12,15 @@ logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-class RegisterUser:  # noqa: D101
+class RegisterUser:
     def __init__(
         self, uow: UnitOfWork, hasher: PasswordHasher, mail: EmailSender, app_url: str
     ) -> None:
         self.uow, self.hasher, self.mail, self.app_url = uow, hasher, mail, app_url
 
-    async def execute(self, email: str, full_name: str, password: str) -> User:
+    async def execute(
+        self, email: str, full_name: str, password: str, role: str = "client"
+    ) -> User:
         """Register a new user."""
         logger.info("Starting user registration", extra={"email": email})
         async with self.uow:
@@ -35,6 +37,7 @@ class RegisterUser:  # noqa: D101
                 User(
                     email=email,
                     full_name=full_name,
+                    role=UserRole(role),
                     password_hash=self.hasher.hash(password),
                     email_verified=False,
                     created_at=datetime.utcnow(),

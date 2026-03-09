@@ -1,14 +1,15 @@
 """Get user profile use case."""
-from app.use_cases.ports import UnitOfWork
+
 from app.domain.entities.user import User
+from app.use_cases.ports import UnitOfWork
 
 
 class GetUserProfile:
-    """Use case for retrieving user profile with onboarding data."""
+    """Use case for retrieving user profile with role information."""
 
     def __init__(self, uow: UnitOfWork) -> None:
         """Initialize the use case.
-        
+
         Args:
             uow: Unit of work for database operations.
         """
@@ -16,10 +17,10 @@ class GetUserProfile:
 
     async def execute(self, user_id: int) -> User | None:
         """Execute the get user profile use case.
-        
+
         Args:
             user_id: The ID of the user to retrieve.
-            
+
         Returns:
             The User entity if found, None otherwise.
         """

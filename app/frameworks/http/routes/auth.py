@@ -19,20 +19,22 @@ from app.frameworks.http.deps import (
     get_uow,
     settings,
 )
+from app.frameworks.http.rate_limiter import (
+    RATE_LIMITS,
+    rate_limit_auth,
+)
 from app.frameworks.http.schemas import (
     ApiResponse,
     ChangePasswordIn,
     ConfirmEmailIn,
     GoogleSignInIn,
     LoginIn,
-    LogoutAllIn,
     MessageResponse,
     RefreshOut,
     RegisterIn,
     RequestPasswordResetIn,
     ResetPasswordIn,
     Token,
-    UserOut,
 )
 from app.use_cases.auth.change_password import ChangePassword
 from app.use_cases.auth.confirm_email import ConfirmEmail
@@ -49,10 +51,6 @@ from app.use_cases.ports import (
     JWTService,
     PasswordHasher,
     UnitOfWork,
-)
-from app.frameworks.http.rate_limiter import (
-    rate_limit_auth,
-    RATE_LIMITS,
 )
 
 router = APIRouter(
@@ -119,8 +117,12 @@ async def register(
 ):
     try:
         uc = RegisterUser(uow, hasher, mail, settings.APP_URL)
-        await uc.execute(payload.email, payload.full_name, payload.password)
-        return ApiResponse.create_success(data=MessageResponse(message="Revisa tu email para confirmar la cuenta"))
+        await uc.execute(
+            payload.email, payload.full_name, payload.password, payload.role
+        )
+        return ApiResponse.create_success(
+            data=MessageResponse(message="Revisa tu email para confirmar la cuenta")
+        )
     except EmailAlreadyExistsError:
         raise  # Will be handled by domain_error_handler
 
@@ -157,7 +159,9 @@ async def login_password(
         )
         user, access, refresh = result["user"], result["access"], result["refresh"]
         set_tokens(response, access, refresh)
-        return ApiResponse.create_success(data=Token(access_token=access, refresh_token=refresh))
+        return ApiResponse.create_success(
+            data=Token(access_token=access, refresh_token=refresh)
+        )
     except (InvalidCredentialsError, EmailNotVerifiedError):
         raise  # Will be handled by domain_error_handler
 
@@ -280,7 +284,9 @@ async def logout_all(
     await LogoutAll(uow).execute(current_user_id)
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
-    return ApiResponse.create_success(data=MessageResponse(message="Sesiones cerradas en todos los dispositivos"))
+    return ApiResponse.create_success(
+        data=MessageResponse(message="Sesiones cerradas en todos los dispositivos")
+    )
 
 
 @router.post(
@@ -304,7 +310,9 @@ async def logout_all(
 async def confirm_email(data: ConfirmEmailIn, uow: UnitOfWork = Depends(get_uow)):
     try:
         await ConfirmEmail(uow).execute(data.token)
-        return ApiResponse.create_success(data=MessageResponse(message="Correo confirmado"))
+        return ApiResponse.create_success(
+            data=MessageResponse(message="Correo confirmado")
+        )
     except InvalidTokenError:
         raise  # Will be handled by domain_error_handler
 
@@ -338,7 +346,9 @@ async def request_reset(
 ):
     await RequestPasswordReset(uow, mail, settings.APP_URL).execute(data.email)
     # Always OK to avoid user enumeration
-    return ApiResponse.create_success(data=MessageResponse(message="Si el email existe, enviaremos instrucciones"))
+    return ApiResponse.create_success(
+        data=MessageResponse(message="Si el email existe, enviaremos instrucciones")
+    )
 
 
 @router.post(
@@ -370,7 +380,9 @@ async def reset_password(
 ):
     try:
         await ResetPassword(uow, hasher, mail).execute(data.token, data.new_password)
-        return ApiResponse.create_success(data=MessageResponse(message="Contraseña actualizada"))
+        return ApiResponse.create_success(
+            data=MessageResponse(message="Contraseña actualizada")
+        )
     except InvalidTokenError:
         raise  # Will be handled by domain_error_handler
 
@@ -388,7 +400,9 @@ async def change_password(
         await ChangePassword(uow, hasher, mail).execute(
             current_user_id, data.current_password, data.new_password
         )
-        return ApiResponse.create_success(data=MessageResponse(message="Contraseña cambiada"))
+        return ApiResponse.create_success(
+            data=MessageResponse(message="Contraseña cambiada")
+        )
     except (InvalidCredentialsError, InvalidTokenError):
         raise  # Will be handled by domain_error_handler
 
@@ -405,6 +419,8 @@ async def google_sign_in(
         uc = GoogleSignIn(uow, gv, jwt)
         user, access, refresh = await uc.execute(data.id_token)
         set_tokens(response, access, refresh)
-        return ApiResponse.create_success(data=Token(access_token=access, refresh_token=refresh))
+        return ApiResponse.create_success(
+            data=Token(access_token=access, refresh_token=refresh)
+        )
     except GoogleTokenVerificationError:
         raise  # Will be handled by domain_error_handler

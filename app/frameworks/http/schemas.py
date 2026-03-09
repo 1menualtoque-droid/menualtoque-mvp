@@ -1,16 +1,19 @@
-from datetime import datetime, date
-from enum import Enum
-from typing import Any, Dict, Generic, Optional, TypeVar, List
+from datetime import datetime
+from enum import StrEnum
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ErrorDetail(BaseModel):
     code: str = Field(..., description="Machine-readable error code")
     message: str = Field(..., description="Human-readable error message")
-    target: Optional[str] = Field(None, description="The target of the error (field name, etc.)")
-    details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
+    target: str | None = Field(
+        None, description="The target of the error (field name, etc.)"
+    )
+    details: dict[str, Any] | None = Field(None, description="Additional error details")
 
 
 class Meta(BaseModel):
@@ -20,17 +23,13 @@ class Meta(BaseModel):
 
 class ApiResponse(BaseModel, Generic[T]):
     success: bool
-    data: Optional[T] = None
-    error: Optional[ErrorDetail] = None
+    data: T | None = None
+    error: ErrorDetail | None = None
     meta: Meta = Field(default_factory=Meta)
 
     @classmethod
-    def create_success(cls, data: T, meta: Optional[Meta] = None) -> 'ApiResponse[T]':
-        return cls(
-            success=True,
-            data=data,
-            meta=meta or Meta()
-        )
+    def create_success(cls, data: T, meta: Meta | None = None) -> "ApiResponse[T]":
+        return cls(success=True, data=data, meta=meta or Meta())
 
     @classmethod
     def create_error(
@@ -38,23 +37,20 @@ class ApiResponse(BaseModel, Generic[T]):
         code: str,
         message: str,
         status_code: int = 400,
-        target: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        meta: Optional[Meta] = None
-    ) -> 'ApiResponse[None]':
+        target: str | None = None,
+        details: dict[str, Any] | None = None,
+        meta: Meta | None = None,
+    ) -> "ApiResponse[None]":
         return cls(
             success=False,
             error=ErrorDetail(
-                code=code,
-                message=message,
-                target=target,
-                details=details
+                code=code, message=message, target=target, details=details
             ),
-            meta=meta or Meta()
+            meta=meta or Meta(),
         )
 
 
-class TokenType(str, Enum):  # noqa: D101
+class TokenType(StrEnum):
     BEARER = "bearer"
     REFRESH = "refresh"
 
@@ -87,6 +83,7 @@ class RegisterIn(BaseModel):
     full_name: str = Field(
         ..., min_length=2, max_length=255, description="User's full name"
     )
+    role: str = Field("client", description="User role: 'client' or 'restaurant'")
     password: str = Field(
         ...,
         min_length=8,
@@ -96,7 +93,7 @@ class RegisterIn(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def validate_password(cls, v):  # noqa: D102
+    def validate_password(cls, v):
         if len(v) < 8:  # noqa: PLR2004
             raise ValueError("Password must be at least 8 characters long")
         if not any(c.isupper() for c in v):
@@ -107,9 +104,18 @@ class RegisterIn(BaseModel):
             raise ValueError("Password must contain at least one digit")
         return v
 
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v):
+        """Validate role is one of the allowed values."""
+        allowed = ["client", "restaurant"]
+        if v not in allowed:
+            raise ValueError(f"Role must be one of: {', '.join(allowed)}")
+        return v
+
     @field_validator("full_name")
     @classmethod
-    def validate_full_name(cls, v):  # noqa: D102
+    def validate_full_name(cls, v):
         if not v.strip():
             raise ValueError("Full name cannot be empty")
         return v.strip()
@@ -123,25 +129,11 @@ class LoginIn(BaseModel):
 
     class Config:  # noqa: D106
         json_schema_extra = {  # noqa: RUF012
-            "example": {"email": "patrick22karusso97@gmail.com", "password": "SecurePassword123!"}
+            "example": {
+                "email": "patrick22karusso97@gmail.com",
+                "password": "SecurePassword123!",
+            }
         }
-
-
-class OnboardingData(BaseModel):
-    """User onboarding information."""
-    
-    needs_nutritional_plan: bool | None = Field(None, description="Whether user needs a nutritional plan")
-    sex: str | None = Field(None, description="User's sex")
-    height_cm: float | None = Field(None, description="Height in centimeters")
-    weight_kg: float | None = Field(None, description="Weight in kilograms")
-    activity_level: str | None = Field(None, description="Activity level")
-    sport: str | None = Field(None, description="Primary sport or activity")
-    goals: List[str] = Field(default_factory=list, description="User's fitness goals")
-    available_foods: List[str] = Field(default_factory=list, description="Foods available to user")
-    target_calories: int | None = Field(None, description="Daily calorie target")
-    completed_at: datetime | None = Field(None, description="When onboarding was completed")
-
-    model_config = {"from_attributes": True}
 
 
 class UserOut(BaseModel):
@@ -150,6 +142,7 @@ class UserOut(BaseModel):
     id: int = Field(..., description="Unique user identifier")
     email: EmailStr = Field(..., description="User's email address")
     full_name: str = Field(..., description="User's full name")
+    role: str = Field(..., description="User role: client or restaurant")
     picture_url: str | None = Field(None, description="URL to user's profile picture")
     email_verified: bool = Field(..., description="Whether the email has been verified")
     last_login_at: datetime | None = Field(
@@ -157,67 +150,19 @@ class UserOut(BaseModel):
     )
     created_at: datetime = Field(..., description="Account creation timestamp")
     updated_at: datetime = Field(..., description="Last profile update timestamp")
-    onboarding_completed: bool = Field(False, description="Whether onboarding is complete")
-    onboarding: OnboardingData | None = Field(None, description="Onboarding data if completed")
 
     model_config = {"from_attributes": True}
 
 
-class CompleteOnboardingIn(BaseModel):
-    """Onboarding completion request model."""
-    
-    needs_nutritional_plan: bool = Field(..., description="Whether user needs a nutritional plan")
-    sex: str = Field(..., description="User's sex: male, female, or other")
-    height_cm: float = Field(..., gt=0, description="Height in centimeters (must be > 0)")
-    weight_kg: float = Field(..., gt=0, description="Weight in kilograms (must be > 0)")
-    activity_level: str = Field(..., description="Activity level: sedentary, light, moderate, active, very_active")
-    sport: str = Field(..., description="Primary sport or activity")
-    goals: List[str] = Field(..., min_length=1, description="User's fitness goals (non-empty)")
-    available_foods: List[str] = Field(..., min_length=1, description="Foods available to user (non-empty)")
-    
-    @field_validator("sex")
-    @classmethod
-    def validate_sex(cls, v):
-        """Validate sex is one of the allowed values."""
-        allowed = ["male", "female", "other"]
-        if v not in allowed:
-            raise ValueError(f"Sex must be one of: {', '.join(allowed)}")
-        return v
-    
-    @field_validator("activity_level")
-    @classmethod
-    def validate_activity_level(cls, v):
-        """Validate activity_level is one of the allowed values."""
-        allowed = ["sedentary", "light", "moderate", "active", "very_active"]
-        if v not in allowed:
-            raise ValueError(f"Activity level must be one of: {', '.join(allowed)}")
-        return v
-
-
 class UpdateUserProfileIn(BaseModel):
     """Partial user profile update request model."""
-    
-    full_name: str | None = Field(None, min_length=2, max_length=255, description="User's full name")
-    weight_kg: float | None = Field(None, gt=0, description="Weight in kilograms")
-    height_cm: float | None = Field(None, gt=0, description="Height in centimeters")
-    activity_level: str | None = Field(None, description="Activity level")
-    sport: str | None = Field(None, description="Primary sport or activity")
-    goals: List[str] | None = Field(None, description="User's fitness goals")
-    available_foods: List[str] | None = Field(None, description="Foods available to user")
-    
-    @field_validator("activity_level")
-    @classmethod
-    def validate_activity_level(cls, v):
-        """Validate activity_level if provided."""
-        if v is None:
-            return v
-        allowed = ["sedentary", "light", "moderate", "active", "very_active"]
-        if v not in allowed:
-            raise ValueError(f"Activity level must be one of: {', '.join(allowed)}")
-        return v
+
+    full_name: str | None = Field(
+        None, min_length=2, max_length=255, description="User's full name"
+    )
 
 
-class RefreshOut(BaseModel):  # noqa: D101
+class RefreshOut(BaseModel):
     access_token: str
 
 
@@ -349,4 +294,3 @@ class ErrorResponse(BaseModel):
                 "code": "AUTH_001",
             }
         }
-

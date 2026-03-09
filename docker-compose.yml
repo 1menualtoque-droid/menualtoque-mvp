@@ -7,9 +7,9 @@ services:
     container_name: auth-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-auth-db}
+      POSTGRES_DB: ${POSTGRES_DB:-menualtoque-db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-menualtoque-db-password}
       TZ: UTC
       PGTZ: UTC
     ports:
